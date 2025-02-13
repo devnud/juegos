@@ -1,0 +1,8 @@
+/* Estilos específicos para la página de Serpiente */
+#serpiente-canvas {
+    display: block;
+    margin: 0 auto;
+    background-color: #000;
+    border: 2px solid #333;
+  }
+  
