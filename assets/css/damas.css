@@ -10,7 +10,6 @@
   border: 2px solid #333;
 }
 
-/* Los estilos para las celdas ya se definen en styles.css o se pueden personalizar aquí */
 #damas-container .cell {
   width: 60px;
   height: 60px;
@@ -34,4 +33,9 @@
 
 #damas-container .piece.white {
   background-color: #fff;
+}
+
+/* Estilo para piezas coronadas (king) */
+#damas-container .piece.king {
+  box-shadow: 0 0 5px 2px gold;
 }

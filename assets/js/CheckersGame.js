@@ -2,17 +2,18 @@
 export default class CheckersGame {
   constructor(container) {
     this.container = container;
-    // El tablero es una matriz 8x8 con celdas nulas o con objeto { color, king }
+    // El tablero se representa como una matriz 8x8: cada celda es null o un objeto { color, king }
     this.boardState = Array.from({ length: 8 }, () => Array(8).fill(null));
-    this.currentPlayer = 'black'; 
-    this.selectedPiece = null;     
-    this.capturingChain = false;   
-    this.moveHistory = [];         // Pila para guardar snapshots de estado
+    this.currentPlayer = 'black'; // Jugador que inicia
+    this.selectedPiece = null;    // Objeto: { row, col, piece }
+    this.capturingChain = false;  // Indica si se continúa una cadena de captura
+    this.lastMove = null;         // Almacena la última jugada (para poder deshacerla)
     this.init();
   }
-  
+
+  // Inicializa el tablero y coloca las piezas
   init() {
-    // Inicializa el estado del tablero
+    // Configura el estado del tablero
     this.boardState = Array.from({ length: 8 }, () => Array(8).fill(null));
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
@@ -27,12 +28,11 @@ export default class CheckersGame {
     }
     this.selectedPiece = null;
     this.capturingChain = false;
-    this.moveHistory = [];
+    this.lastMove = null; // Al inicio, no hay movimiento para deshacer
     this.renderBoard();
-    this.saveState(); // Guarda el estado inicial
   }
-  
-  // Renderiza el tablero a partir de boardState
+
+  // Renderiza el tablero en el DOM según boardState
   renderBoard() {
     this.container.innerHTML = "";
     for (let row = 0; row < 8; row++) {
@@ -51,63 +51,49 @@ export default class CheckersGame {
       }
     }
   }
-  
-  // Guarda un snapshot del estado actual para poder deshacer
-  saveState() {
-    const snapshot = {
-      boardState: JSON.parse(JSON.stringify(this.boardState)),
-      currentPlayer: this.currentPlayer,
-      selectedPiece: this.selectedPiece ? { ...this.selectedPiece } : null,
-      capturingChain: this.capturingChain
-    };
-    this.moveHistory.push(snapshot);
-  }
-  
-  // Deshace el último movimiento
-  undoMove() {
-    if (this.moveHistory.length > 1) { // Siempre se guarda el estado inicial
-      this.moveHistory.pop(); // Elimina el estado actual
-      const lastState = this.moveHistory[this.moveHistory.length - 1];
-      this.boardState = lastState.boardState;
-      this.currentPlayer = lastState.currentPlayer;
-      this.selectedPiece = lastState.selectedPiece;
-      this.capturingChain = lastState.capturingChain;
-      this.renderBoard();
-    } else {
-      console.log("No hay movimientos para deshacer");
-    }
-  }
-  
+
+  // Coloca una pieza en el DOM
   placePiece(cell, color, king = false) {
     const piece = document.createElement("div");
     piece.classList.add("piece", color);
-    if (king) {
-      piece.classList.add("king");
-    }
+    if (king) piece.classList.add("king");
     cell.appendChild(piece);
   }
-  
+
+  // Maneja el clic en una celda
   handleCellClick(e) {
     const row = parseInt(e.currentTarget.dataset.row);
     const col = parseInt(e.currentTarget.dataset.col);
     const cellState = this.boardState[row][col];
-    
+
     if (this.selectedPiece) {
-      // Si se hace clic en otra pieza del jugador activo, cambia la selección
+      // Si se hace clic en otra pieza del mismo jugador, cambia la selección
       if (cellState && cellState.color === this.currentPlayer) {
         this.selectedPiece = { row, col, piece: cellState };
         return;
       }
-      // Obtiene movimientos válidos para la pieza seleccionada
       let validMoves = this.getValidMoves(this.selectedPiece.row, this.selectedPiece.col);
-      // Si hay captura disponible, filtra para capturas obligatorias
       if (this.anyCaptureAvailable()) {
         validMoves = validMoves.filter(move => move.capture);
       }
       const chosenMove = validMoves.find(move => move.toRow === row && move.toCol === col);
       if (chosenMove) {
-        // Guarda el estado antes de ejecutar el movimiento
-        this.saveState();
+        // Guarda la información del último movimiento para deshacerlo
+        // Se clona el objeto de la pieza para recordar su estado previo (por ejemplo, si no era rey)
+        this.lastMove = {
+          fromRow: this.selectedPiece.row,
+          fromCol: this.selectedPiece.col,
+          toRow: row,
+          toCol: col,
+          movedPiece: JSON.parse(JSON.stringify(this.boardState[this.selectedPiece.row][this.selectedPiece.col])),
+          captured: chosenMove.capture ? { 
+            row: chosenMove.captured.row, 
+            col: chosenMove.captured.col, 
+            piece: JSON.parse(JSON.stringify(this.boardState[chosenMove.captured.row][chosenMove.captured.col]))
+          } : null,
+          mover: this.boardState[this.selectedPiece.row][this.selectedPiece.col].color
+        };
+
         this.executeMove(this.selectedPiece.row, this.selectedPiece.col, row, col, chosenMove.capture, chosenMove.captured);
         if (chosenMove.capture) {
           const furtherCaptures = this.getValidMoves(row, col).filter(m => m.capture);
@@ -120,20 +106,22 @@ export default class CheckersGame {
         }
         this.selectedPiece = null;
         this.capturingChain = false;
-        this.currentPlayer = this.currentPlayer === "black" ? "white" : "black";
+        // Cambia el turno después de mover
+        this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
         this.renderBoard();
       } else {
         console.log("Movimiento no válido");
       }
     } else {
+      // Selecciona la pieza si pertenece al jugador actual
       if (cellState && cellState.color === this.currentPlayer) {
         this.selectedPiece = { row, col, piece: cellState };
       }
     }
   }
-  
-  // Devuelve movimientos válidos para la pieza en (row, col)
-  // Cada movimiento: { toRow, toCol, capture: boolean, captured: {row, col} o null }
+
+  // Devuelve los movimientos válidos para la pieza en (row, col)
+  // Cada movimiento es un objeto: { toRow, toCol, capture: boolean, captured: {row, col} o null }
   getValidMoves(row, col) {
     const piece = this.boardState[row][col];
     if (!piece) return [];
@@ -159,45 +147,72 @@ export default class CheckersGame {
     }
     return moves;
   }
-  
+
   inBounds(row, col) {
     return row >= 0 && row < 8 && col >= 0 && col < 8;
   }
-  
+
   anyCaptureAvailable() {
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
         const piece = this.boardState[row][col];
         if (piece && piece.color === this.currentPlayer) {
           const moves = this.getValidMoves(row, col);
-          if (moves.some(move => move.capture)) {
-            return true;
-          }
+          if (moves.some(move => move.capture)) return true;
         }
       }
     }
     return false;
   }
-  
+
+  // Ejecuta el movimiento y actualiza el estado del tablero
   executeMove(fromRow, fromCol, toRow, toCol, captureMove, captured) {
     const piece = this.boardState[fromRow][fromCol];
+    // Mueve la pieza
     this.boardState[toRow][toCol] = piece;
     this.boardState[fromRow][fromCol] = null;
+    // Si es una captura, elimina la pieza capturada
     if (captureMove && captured) {
       this.removePiece(captured.row, captured.col);
     }
-    // Promoción: si la pieza llega a la última fila y no es rey, se corona
+    // Promoción: si la pieza alcanza la última fila y no es rey, se corona
     if (!piece.king) {
       if ((piece.color === "black" && toRow === 7) || (piece.color === "white" && toRow === 0)) {
         piece.king = true;
       }
     }
   }
-  
+
   removePiece(row, col) {
     this.boardState[row][col] = null;
   }
-  
+
+  // Función undo: revierte únicamente el último movimiento de la última ficha movida
+  undoMove() {
+    if (this.lastMove) {
+      const lm = this.lastMove;
+      // Restaura la pieza movida a su posición original
+      const movedPiece = this.boardState[lm.toRow][lm.toCol];
+      this.boardState[lm.fromRow][lm.fromCol] = movedPiece;
+      this.boardState[lm.toRow][lm.toCol] = null;
+      // Si en el movimiento se capturó una pieza, la restaura
+      if (lm.captured) {
+        this.boardState[lm.captured.row][lm.captured.col] = lm.captured.piece;
+      }
+      // Si la pieza fue promovida en ese movimiento pero antes no era rey, revertir la promoción
+      if (movedPiece.king && !lm.movedPiece.king) {
+        movedPiece.king = false;
+      }
+      // Restaura el turno al jugador que hizo el movimiento
+      this.currentPlayer = lm.mover;
+      // Limpia el último movimiento
+      this.lastMove = null;
+      this.renderBoard();
+    } else {
+      console.log("No hay movimiento para deshacer");
+    }
+  }
+
   resetGame() {
     this.init();
   }
