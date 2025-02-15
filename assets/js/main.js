@@ -1,6 +1,7 @@
 import TicTacToe from "./TicTacToe.js";
 import CheckersGame from "./CheckersGame.js";
 import SnakeGame from "./SnakeGame.js";
+import TetrisGame from "./TetrisGame.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const ticTacToeContainer = document.getElementById("tres-en-raya-container");
@@ -17,8 +18,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (snakeCanvas) {
     window.snakeGame = new SnakeGame(snakeCanvas);
   }
+  
+  const tetrisCanvas = document.getElementById("tetris-canvas");
+  if (tetrisCanvas) {
+    window.tetrisGame = new TetrisGame(tetrisCanvas);
+  }
 });
 
+// Funciones globales para reiniciar juegos
 export function resetCheckers() {
   if (window.checkersGame) {
     window.checkersGame.resetGame();
@@ -37,6 +44,13 @@ export function resetSnake() {
   }
 }
 
+export function resetTetris() {
+  if (window.tetrisGame) {
+    window.tetrisGame.reset();
+  }
+}
+
 window.resetCheckers = resetCheckers;
 window.undoCheckers = undoCheckers;
 window.resetSnake = resetSnake;
+window.resetTetris = resetTetris;
