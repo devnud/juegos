@@ -1,0 +1,41 @@
+/* Estilos específicos para el juego de Damas */
+#damas-container {
+  display: grid;
+  grid-template-columns: repeat(8, 60px);
+  grid-template-rows: repeat(8, 60px);
+  gap: 0;
+  margin: 2rem auto;
+  width: 480px;
+  height: 480px;
+  border: 2px solid #333;
+}
+
+#damas-container .cell {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  border: 1px solid #ccc;
+}
+
+/* Estilos para las piezas */
+#damas-container .piece {
+  width: 50%;
+  height: 50%;
+  border-radius: 50%;
+}
+
+#damas-container .piece.black {
+  background-color: #000;
+}
+
+#damas-container .piece.white {
+  background-color: #fff;
+}
+
+/* Estilo para piezas coronadas (king) */
+#damas-container .piece.king {
+  box-shadow: 0 0 5px 2px gold;
+}
